@@ -142,15 +142,12 @@ export class HttpClient {
    */
   public handleResponse(req: req.Request, res: req.Response, body: any) {
     debug('Http response body: %j', body);
-    if (typeof body === 'string') {
-      // Remove any extra characters that appear before or after the SOAP
-      // envelope.
-      const match =
-        body.replace(/<!--[\s\S]*?-->/, '').match(/(?:<\?[^?]*\?>[\s]*)?<([^:]*):Envelope([\S\s]*)<\/\1:Envelope>/i);
-      if (match) {
-        body = match[0];
-      }
-    }
+    if (typeof body !== 'string') body = body.toString('utf8')
+    // Remove any extra characters that appear before or after the SOAP
+    // envelope.
+    const match = body.replace(/<!--[\s\S]*?-->/, '')
+      .match(/(?:<\?[^?]*\?>[\s]*)?<([^:]*):Envelope([\S\s]*)<\/\1:Envelope>/i);
+    if (match) body = match[0];
     return body;
   }
 
@@ -182,6 +179,7 @@ export class HttpClient {
         callback(null, res, res.body);
       });
     } else {
+      options.encoding = null;
       req = this._request(options, (err, res, body) => {
         if (err) {
           return callback(err);
