@@ -25,6 +25,15 @@ describe('WSDL Parser (strict)', () => {
     });
   });
 
+  it("should catch incorrect wsdl", done => {
+    soap.createClient(__dirname + "/wsdl/bad2.txt", { strict: true }, function(
+      err
+    ) {
+      assert.notEqual(err, null);
+      done();
+    });
+  });
+
   it('should not give error as string', (done) => {
     soap.createClient(__dirname+'/wsdl/bad.txt', function(err) {
       assert.notEqual(typeof err, 'string');
@@ -238,6 +247,24 @@ describe('WSDL Parser (non-strict)', () => {
       var desc = client.describe();		
       var personDescription = desc.Service1.BasicHttpBinding_IService1.GetPerson.output.GetPersonResult;
       assert.equal(personDescription, personDescription.Department.HeadOfDepartment);
+      done();
+    });
+  });  
+
+  it('should describe referenced elements with type of the same name', (done) => {
+    soap.createClient(__dirname+'/wsdl/ref_element_same_as_type.wsdl', function(err, client) {
+      assert.ifError(err);
+      var desc = client.describe();		
+      assert.equal(desc.MyService.MyPort.MyOperation.input.ExampleContent.MyID, 'xsd:string');
+      done();
+    });
+  });  
+
+  it('should describe port type', (done) => {
+    soap.createClient(__dirname+'/wsdl/ref_element_same_as_type.wsdl', function(err, client) {
+      assert.ifError(err);
+      var desc = client.wsdl.definitions.portTypes.MyPortType.description(client.wsdl.definitions);		
+      assert.equal(desc.MyOperation.input.ExampleContent.MyID, 'xsd:string');
       done();
     });
   });  

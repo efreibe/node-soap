@@ -16,28 +16,12 @@ import * as url from 'url';
 import { HttpClient } from '../http';
 import { NamespaceContext } from '../nscontext';
 import { IOptions } from '../types';
-import { findPrefix, splitQName, TNS_PREFIX } from '../utils';
+import { findPrefix, splitQName, TNS_PREFIX, xmlEscape } from '../utils';
 import * as elements from './elements';
 
 const debug = debugBuilder('node-soap');
 
 const XSI_URI = 'http://www.w3.org/2001/XMLSchema-instance';
-
-function xmlEscape(obj) {
-  if (typeof (obj) === 'string') {
-    if (obj.substr(0, 9) === '<![CDATA[' && obj.substr(-3) === ']]>') {
-      return obj;
-    }
-    return obj
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
-
-  return obj;
-}
 
 const trimLeft = /^[\s\xA0]+/;
 const trimRight = /[\s\xA0]+$/;
@@ -120,48 +104,52 @@ export class WSDL {
           return this.callback(err);
         }
 
-        this.definitions.deleteFixedAttrs();
-        const services = this.services = this.definitions.services;
-        if (services) {
-          for (name in services) {
-            services[name].postProcess(this.definitions);
-          }
-        }
-        const complexTypes = this.definitions.complexTypes;
-        if (complexTypes) {
-          for (name in complexTypes) {
-            complexTypes[name].deleteFixedAttrs();
-          }
-        }
-
-        // for document style, for every binding, prepare input message element name to (methodName, output message element name) mapping
-        const bindings = this.definitions.bindings;
-        for (const bindingName in bindings) {
-          const binding = bindings[bindingName];
-          if (typeof binding.style === 'undefined') {
-            binding.style = 'document';
-          }
-          if (binding.style !== 'document') {
-            continue;
-          }
-          const methods = binding.methods;
-          const topEls: elements.ITopElements = binding.topElements = {};
-          for (const methodName in methods) {
-            if (methods[methodName].input) {
-              const inputName = methods[methodName].input.$name;
-              let outputName = '';
-              if (methods[methodName].output ) {
-                outputName = methods[methodName].output.$name;
-              }
-              topEls[inputName] = {methodName: methodName, outputName: outputName};
+        try {
+          this.definitions.deleteFixedAttrs();
+          const services = this.services = this.definitions.services;
+          if (services) {
+            for (name in services) {
+              services[name].postProcess(this.definitions);
             }
           }
+          const complexTypes = this.definitions.complexTypes;
+          if (complexTypes) {
+            for (name in complexTypes) {
+              complexTypes[name].deleteFixedAttrs();
+            }
+          }
+
+          // for document style, for every binding, prepare input message element name to (methodName, output message element name) mapping
+          const bindings = this.definitions.bindings;
+          for (const bindingName in bindings) {
+            const binding = bindings[bindingName];
+            if (typeof binding.style === 'undefined') {
+              binding.style = 'document';
+            }
+            if (binding.style !== 'document') {
+              continue;
+            }
+            const methods = binding.methods;
+            const topEls: elements.ITopElements = binding.topElements = {};
+            for (const methodName in methods) {
+              if (methods[methodName].input) {
+                const inputName = methods[methodName].input.$name;
+                let outputName = '';
+                if (methods[methodName].output ) {
+                  outputName = methods[methodName].output.$name;
+                }
+                topEls[inputName] = {methodName: methodName, outputName: outputName};
+              }
+            }
+          }
+
+          // prepare soap envelope xmlns definition string
+          this.xmlnsInEnvelope = this._xmlnsMap();
+
+          this.callback(err, this);
+        } catch (e) {
+          this.callback(e);
         }
-
-        // prepare soap envelope xmlns definition string
-        this.xmlnsInEnvelope = this._xmlnsMap();
-
-        this.callback(err, this);
       });
 
     });
